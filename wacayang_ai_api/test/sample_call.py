@@ -5,7 +5,7 @@ import numpy as np
 # Classes Label
 labels = ["Semar", "Petruk", "Gareng", "Bagong"]
 
-model = load_model('../wacayang_model.h5', compile=False)
+model = load_model('wacayang_model.h5', compile=False)
 
 image = Image.open('../images/bagong.jpg')
 size = (224, 224)

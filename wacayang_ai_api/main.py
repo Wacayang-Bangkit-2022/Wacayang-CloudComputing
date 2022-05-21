@@ -1,43 +1,57 @@
 import io
-import tensorflow as tf
+
+import flask
 from tensorflow import keras
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image
 from flask import Flask, request, jsonify
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import auth
 
 # Systems
-model = keras.models.load_model("wacayang_model.h5", compile=False)
+model = keras.models.load_model("models/baseline_model.h5", compile=False)
 app = Flask(__name__)
 
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+
+bad_request = flask.Response('{"error": true, "message": "Bad request. Invalid token."}', status=403, mimetype='application/json')
+
 # Classes Label
-labels = ["Semar", "Petruk", "Gareng", "Bagong"]
-image_size = [224, 224]
+labels = ['Bagong', 'Cepot', 'Gareng', 'Petruk', 'Semar']
+image_size = 300
 
 
 # Convert Image to Appropriate Format
 def format_image(image):
-    image = ImageOps.fit(image, image_size)
-    image_array = np.asarray(image)
-    normalized_image_array = (image_array.astype(np.float32) / 127.0) - 1
-    formatted_image = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
-    formatted_image[0] = normalized_image_array
-    return formatted_image
+    image = np.array(image.resize((image_size, image_size))) / 255.0
+    image = np.expand_dims(image, axis=0)
+    return image
 
 
 # Predict Image
 def predict_image(image):
     prediction = model.predict(image)
-    return int(np.argmax(prediction[0]))
+    return int(np.argmax(prediction))
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    return jsonify(
-        {"message": "Welcome to Wacayang AI API! Try: POST /predict with image file parameter namely 'file'"})
+    verify_id_token()
+    if request.uid == 'undefined':
+        return bad_request
+
+    return jsonify({"error": False, "message": "Welcome to Wacayang AI API! Try: POST /predict with image file "
+                                               "parameter namely 'file'"})
 
 
 @app.route("/predict", methods=["GET", "POST"])
 def request_prediction():
+    verify_id_token()
+    if request.uid == 'undefined':
+        return bad_request
+
     if request.method == "POST":
         file = request.files.get('file')
         if file is None or file.filename == "":
@@ -58,6 +72,20 @@ def request_prediction():
             return jsonify({"error": True, "message": str(e)})
 
     return jsonify({"error": False, "message": "Prediction service online. Try POST method to predict an image file."})
+
+
+def verify_id_token():
+    try:
+        header = request.headers['authorization']
+        if header != 'undefined':
+            bearer = header.split(' ')
+            token = bearer[1]
+            user = auth.verify_id_token(token)
+            request.uid = user['uid']
+        else:
+            request.uid = 'undefined'
+    except Exception as e:
+        request.uid = 'undefined'
 
 
 if __name__ == "__main__":
