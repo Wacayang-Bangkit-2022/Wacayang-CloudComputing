@@ -5,8 +5,8 @@ INSTANCE_CONNECTION_NAME = wacayang:asia-southeast2:wacayang-db <br/>
 region = asia-southeast2 <br/>
 gcloud run deploy
 
-### Required Moduls
-node js
-express
-firebase-admin
+### Required Modules
+node.js <br/>
+express <br/>
+firebase-admin <br/>
 mysql
