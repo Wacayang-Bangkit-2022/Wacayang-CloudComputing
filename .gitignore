@@ -1,6 +1,6 @@
-**/.idea
+**/*.idea
 **/images
 **/test
 **/serviceAccountKey.json
-**/.vscode
+**/*.vscode
 **/node_modules
