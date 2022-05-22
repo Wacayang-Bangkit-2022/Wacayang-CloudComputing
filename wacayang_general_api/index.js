@@ -57,7 +57,7 @@ app.get("/search", verifyIdToken, async(req, res) => {
     });
 });
 
-app.get("/add-favorite", verifyIdToken, async(req, res) => {
+app.post("/add-favorite", verifyIdToken, async(req, res) => {
     const uid = req.uid;
     const wayang_id = req.query.wayang;
     const query = "INSERT INTO favorite_wayang (user_id, wayang_id) VALUES (?, ?)";
@@ -70,7 +70,7 @@ app.get("/add-favorite", verifyIdToken, async(req, res) => {
     });
 });
 
-app.get("/del-favorite", verifyIdToken, async(req, res) => {
+app.post("/del-favorite", verifyIdToken, async(req, res) => {
     const uid = req.uid;
     const wayang_id = req.query.wayang;
     const query = "DELETE FROM favorite_wayang WHERE user_id = ? AND wayang_id = ?";
