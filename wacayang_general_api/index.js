@@ -21,6 +21,72 @@ app.get("/", verifyIdToken, async (req, res) => {
     res.status(200).send({ error: false, message: "Welcome to Wacayang API! Try: /wayangs, /wayangs/:id, /search?name=query" });
 });
 
+app.get("/sign", verifyIdToken, async (req, res) => {
+    const query = "SELECT user_id FROM user_table WHERE user_id = ?";
+    mysqlPool.query(query, [req.uid], (error, result) => {
+        if (!result) {
+            res.status(400).send({ error: true, message: "Error to sign user." });
+        } else {
+            if (result.length < 1) {
+                const query2 = "INSERT INTO user_table VALUES (?, ?, ?, ?)";
+                mysqlPool.query(query2, [req.uid, req.name, req.email, req.photo], (error, result2) => {
+                    if (!result2) res.status(400).send({ error: true, message: "Error to sign user." });
+                    else res.status(200).send({ error: false, message: "User signed in.", user: req.uid });
+                });
+            } else {
+                const query3 = "UPDATE user_table SET user_id=?, user_name=?, user_email=?, user_photo=? WHERE user_id = ?";
+                mysqlPool.query(query3, [req.uid, req.name, req.email, req.photo, req.uid], (error, result3) => {
+                    if (!result3) res.status(400).send({ error: true, message: "Error to sign user." });
+                    else res.status(200).send({ error: false, message: "User signed in.", user: req.uid });
+                });
+            }
+        }
+    });
+});
+
+app.post("/add-comment", verifyIdToken, async (req, res) => {
+    const wayang_id = req.query.wayang;
+    const comment = req.query.comment;
+
+    const ISODate = new Date(Date.now());
+    const formattedDate = ISODate.toJSON().slice(0, 19).replace('T', ' ');
+
+    const query = "INSERT INTO user_comment (user_id, wayang_id, comment_content, created_at) VALUES (?, ?, ?, ?)";
+    mysqlPool.query(query, [req.uid, wayang_id, comment, formattedDate], (error, result) => {
+        if (!result) {
+            res.status(400).send({ error: true, message: "Failed to post comment." });
+        } else {
+            res.status(200).send({ error: false, message: "Comment posted successfully.", user: req.uid, wayang: parseInt(wayang_id), content: comment});
+        }
+    });
+});
+
+app.post("/del-comment", verifyIdToken, async (req, res) => {
+    const comment = req.query.comment;
+    const query = "DELETE FROM user_comment WHERE comment_id = ?";
+    mysqlPool.query(query, [comment], (error, result) => {
+        if (!result) {
+            res.status(400).send({ error: true, message: "Failed to delete comment." });
+        } else {
+            res.status(200).send({ error: false, message: "Comment deleted successfully.", comment_id: parseInt(comment) });
+        }
+    });
+});
+
+app.get("/comments", verifyIdToken, async (req, res) => {
+    const wayang = req.query.wayang;
+    const query = "SELECT comment_id, user_comment.user_id, user_name, user_photo, comment_content as comment, user_comment.created_at FROM user_comment " + 
+        "INNER JOIN user_table ON user_comment.user_id = user_table.user_id WHERE wayang_id = ? ORDER BY created_at DESC";
+
+    mysqlPool.query(query, [wayang], (error, result) => {
+        if (!result) {
+            res.status(400).send({ error: true, message: "Failed to fetch comments." });
+        } else {
+            res.status(200).send({ error: false, message: "Comments fetched successfully.", wayang_id: parseInt(wayang), comments: result});
+        }
+    });
+});
+
 app.get("/wayangs", verifyIdToken, async(req, res) => {
     const query = "SELECT * FROM wayang_table";
     mysqlPool.query(query, (error, result) => {
@@ -35,8 +101,15 @@ app.get("/wayangs", verifyIdToken, async(req, res) => {
 app.get("/wayangs/:id", verifyIdToken, async(req, res) => {
     const wayang_id = req.params.id;
     const user_id = req.uid;
-    const query = "SELECT wayang_table.*, (SELECT (COUNT(user_id) > 0) FROM favorite_wayang WHERE user_id = ? AND wayang_id = ?) as is_favorite FROM wayang_table WHERE id = ?";
-    mysqlPool.query(query, [user_id, wayang_id, wayang_id], (error, result) => {
+    const query = "SELECT wayang_table.*, " +
+    "(SELECT (COUNT(user_id) > 0) FROM favorite_wayang WHERE user_id = ? AND wayang_id = ?) as is_favorite," +
+    "(SELECT COUNT(comment_id) FROM user_comment WHERE wayang_id = ?) as total_comments," +
+    "(SELECT comment_id FROM user_comment WHERE wayang_id = ? ORDER BY created_at DESC LIMIT 1) as recent_comment_id," + 
+    "(SELECT comment_content FROM user_comment WHERE comment_id = recent_comment_id LIMIT 1) as recent_comment," + 
+    "(SELECT user_photo FROM user_table WHERE user_id = (SELECT user_id FROM user_comment WHERE comment_id = recent_comment_id LIMIT 1)) as commenter_photo " +
+    "FROM wayang_table WHERE id = ?";
+
+    mysqlPool.query(query, [user_id, wayang_id, wayang_id, wayang_id, wayang_id], (error, result) => {
         if (!result) {
             res.status(400).send({ error: true, message: "Not found." });
         } else {
@@ -107,6 +180,10 @@ async function verifyIdToken(req, res, next) {
             const user = await auth.verifyIdToken(token);
             
             req.uid = user.uid;
+            req.name = user.name;
+            req.email = user.email;
+            req.photo = user.picture;
+
             next();
         } else {
             res.status(403).send(badRequestJSON);
