@@ -21,7 +21,7 @@ app.get("/", verifyIdToken, async (req, res) => {
     res.status(200).send({ error: false, message: "Welcome to Wacayang API! Try: /wayangs, /wayangs/:id, /search?name=query" });
 });
 
-app.get("/sign", verifyIdToken, async (req, res) => {
+app.post("/sign", verifyIdToken, async (req, res) => {
     const query = "SELECT user_id FROM user_table WHERE user_id = ?";
     mysqlPool.query(query, [req.uid], (error, result) => {
         if (!result) {
