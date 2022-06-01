@@ -10,7 +10,7 @@ from firebase_admin import credentials
 from firebase_admin import auth
 
 # Systems
-model = keras.models.load_model("models/baseline_model.h5", compile=False)
+model = keras.models.load_model("models/inception_v3_model.h5", compile=False)
 app = Flask(__name__)
 
 cred = credentials.Certificate("serviceAccountKey.json")
@@ -20,7 +20,7 @@ bad_request = flask.Response('{"error": true, "message": "Bad request. Invalid t
 
 # Classes Label
 labels = ['Bagong', 'Cepot', 'Gareng', 'Petruk', 'Semar']
-image_size = 300
+image_size = 150
 
 
 # Convert Image to Appropriate Format
